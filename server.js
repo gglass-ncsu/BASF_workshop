@@ -97,6 +97,14 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    // Check if Claude is initialized
+    if (!anthropic) {
+      return res.status(503).json({ 
+        error: 'Claude AI service is not available',
+        details: 'The AI service is initializing or misconfigured. Please try again in a moment.'
+      });
+    }
+
     let systemPrompt = '';
     let userMessage = message;
 
@@ -167,17 +175,26 @@ app.get('/', (req, res) => {
 
 // Initialize and start server
 async function startServer() {
-  try {
-    await initClaude();
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`BASF AI Workshop server running on port ${port}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Project ID: ${process.env.PROJECT_ID || 'not set'}`);
+  // Start the server first, then initialize Claude in the background
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`BASF AI Workshop server running on port ${port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Project ID: ${process.env.PROJECT_ID || 'not set'}`);
+  });
+
+  // Initialize Claude in the background (don't block server startup)
+  initClaude().catch(error => {
+    console.error('Failed to initialize Claude client:', error.message);
+    console.log('Server will continue running but Claude features will be unavailable');
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Process terminated');
     });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
+  });
 }
 
 startServer();

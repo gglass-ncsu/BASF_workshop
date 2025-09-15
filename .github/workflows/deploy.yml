@@ -88,17 +88,22 @@ jobs:
             --image gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA \
             --region $REGION \
             --platform managed \
-            --allow-unauthenticated \
             --set-env-vars PROJECT_ID=$PROJECT_ID \
             --memory 1Gi \
             --cpu 1 \
             --max-instances 10 \
             --timeout 900 \
-            --port 8080
+            --port 8080 \
+            --no-allow-unauthenticated
 
       - name: Set IAM policy for public access
         run: |
+          echo "Setting IAM policy for public access..."
           gcloud run services add-iam-policy-binding $SERVICE_NAME \
+            --region=$REGION \
+            --member="allUsers" \
+            --role="roles/run.invoker" || \
+          gcloud beta run services add-iam-policy-binding $SERVICE_NAME \
             --region=$REGION \
             --member="allUsers" \
             --role="roles/run.invoker"
