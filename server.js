@@ -36,25 +36,29 @@ async function initClaude() {
       console.log('PROJECT_ID not set, using environment variable for API key');
       const apiKey = process.env.CLAUDE_API_KEY;
       if (!apiKey) {
+        console.error('CLAUDE_API_KEY environment variable not set');
         throw new Error('CLAUDE_API_KEY environment variable not set');
       }
       anthropic = new Anthropic({ apiKey });
+      console.log('Claude client initialized with environment variable');
       return;
     }
 
+    console.log(`Attempting to fetch Claude API key from Secret Manager for project: ${projectId}`);
     const name = `projects/${projectId}/secrets/claude-api-key/versions/latest`;
     const [version] = await secretClient.accessSecretVersion({ name });
     const apiKey = version.payload.data.toString();
     anthropic = new Anthropic({ apiKey });
     console.log('Claude client initialized with Secret Manager API key');
   } catch (error) {
-    console.error('Failed to initialize Claude client:', error.message);
+    console.error('Failed to initialize Claude client from Secret Manager:', error.message);
     // Fallback to environment variable
     const apiKey = process.env.CLAUDE_API_KEY;
     if (apiKey) {
       anthropic = new Anthropic({ apiKey });
-      console.log('Claude client initialized with environment variable');
+      console.log('Claude client initialized with environment variable fallback');
     } else {
+      console.error('No API key available for Claude - neither Secret Manager nor environment variable');
       throw new Error('No API key available for Claude');
     }
   }
@@ -145,7 +149,15 @@ app.get('/api/templates', (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  const healthStatus = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    port: port,
+    claude_initialized: !!anthropic
+  };
+  res.json(healthStatus);
 });
 
 // Serve the main application
@@ -157,8 +169,10 @@ app.get('/', (req, res) => {
 async function startServer() {
   try {
     await initClaude();
-    app.listen(port, () => {
+    app.listen(port, '0.0.0.0', () => {
       console.log(`BASF AI Workshop server running on port ${port}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Project ID: ${process.env.PROJECT_ID || 'not set'}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

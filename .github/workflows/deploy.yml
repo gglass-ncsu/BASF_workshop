@@ -65,6 +65,15 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      - name: Enable required APIs
+        run: |
+          echo "Enabling required Google Cloud APIs..."
+          gcloud services enable run.googleapis.com
+          gcloud services enable cloudbuild.googleapis.com
+          gcloud services enable containerregistry.googleapis.com
+          gcloud services enable artifactregistry.googleapis.com
+          echo "APIs enabled successfully"
+
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
@@ -81,10 +90,18 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --set-env-vars PROJECT_ID=$PROJECT_ID \
-            --memory 512Mi \
+            --memory 1Gi \
             --cpu 1 \
             --max-instances 10 \
-            --timeout 300
+            --timeout 900 \
+            --port 8080
+
+      - name: Set IAM policy for public access
+        run: |
+          gcloud run services add-iam-policy-binding $SERVICE_NAME \
+            --region=$REGION \
+            --member="allUsers" \
+            --role="roles/run.invoker"
 
       - name: Get service URL
         id: url
@@ -119,6 +136,14 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      - name: Enable required APIs
+        run: |
+          echo "Enabling required Google Cloud APIs..."
+          gcloud services enable run.googleapis.com
+          gcloud services enable cloudbuild.googleapis.com
+          gcloud services enable containerregistry.googleapis.com
+          gcloud services enable artifactregistry.googleapis.com
+
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
@@ -135,10 +160,11 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --set-env-vars PROJECT_ID=$PROJECT_ID \
-            --memory 512Mi \
+            --memory 1Gi \
             --cpu 1 \
             --max-instances 3 \
-            --timeout 300
+            --timeout 900 \
+            --port 8080
 
       - name: Get preview URL
         id: preview_url
