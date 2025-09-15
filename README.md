@@ -40,7 +40,7 @@ This environment provides an easy-to-use interface for workshop participants to 
    - Add `GCP_PROJECT_ID` and `GCP_SERVICE_ACCOUNT_KEY` secrets
    - Push your code to the `main` branch
 
-3. **Automatic deployment:** GitHub Actions will automatically deploy your app!
+3. **Automatic deployment:** GitHub Actions will automatically deploy your app with any commit!
 
 ### Option 2: Direct Google Cloud Deployment
 
