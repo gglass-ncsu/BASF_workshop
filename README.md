@@ -1,6 +1,6 @@
 # BASF AI Workshop - Google Cloud Environment
 
-A cloud-hosted workshop environment for "AI for Agricultural Marketers: Crafting a High-Value Narrative for Growth" using Claude AI.
+A cloud-hosted workshop environment for "AI for Agricultural Marketers: Crafting a High-Value Narrative for Growth" using Claude AI APIs.
 
 ## 🎯 Workshop Overview
 
