@@ -115,7 +115,7 @@ app.post('/api/chat', async (req, res) => {
     const finalSystemPrompt = systemPrompt || 'You are a helpful AI assistant specializing in agricultural marketing and business strategy.';
 
     const response = await anthropic.messages.create({
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 2000,
       system: finalSystemPrompt,
       messages: [
@@ -133,11 +133,38 @@ app.post('/api/chat', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Claude API error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get response from Claude',
-      details: error.message 
+    console.error('Claude API error details:', {
+      message: error.message,
+      status: error.status,
+      type: error.type,
+      error: error.error,
+      headers: error.headers
     });
+    
+    // More specific error handling
+    if (error.status === 400) {
+      res.status(400).json({ 
+        error: 'Invalid request to Claude API',
+        details: `Bad request: ${error.message}`,
+        type: error.type || 'validation_error'
+      });
+    } else if (error.status === 401) {
+      res.status(401).json({ 
+        error: 'Authentication failed',
+        details: 'Invalid or missing API key for Claude'
+      });
+    } else if (error.status === 429) {
+      res.status(429).json({ 
+        error: 'Rate limit exceeded',
+        details: 'Too many requests to Claude API. Please try again later.'
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Failed to get response from Claude',
+        details: error.message,
+        status: error.status || 'unknown'
+      });
+    }
   }
 });
 
