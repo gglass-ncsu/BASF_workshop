@@ -91,10 +91,10 @@ const promptTemplates = {
 // API endpoint for Claude interactions
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, promptType, context } = req.body;
+    const { systemPrompt, userPrompt, context } = req.body;
     
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!userPrompt) {
+      return res.status(400).json({ error: 'User prompt is required' });
     }
 
     // Check if Claude is initialized
@@ -105,34 +105,31 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    let systemPrompt = '';
-    let userMessage = message;
-
-    // Use template if specified
-    if (promptType && promptTemplates[promptType]) {
-      systemPrompt = promptTemplates[promptType].system;
-      if (context) {
-        userMessage = `${promptTemplates[promptType].template}\n\nContext: ${context}\n\nUser Input: ${message}`;
-      } else {
-        userMessage = `${promptTemplates[promptType].template}\n\nUser Input: ${message}`;
-      }
+    // Prepare the user message, optionally including context
+    let finalUserMessage = userPrompt;
+    if (context) {
+      finalUserMessage = `${userPrompt}\n\nAdditional Context: ${context}`;
     }
+
+    // Prepare the system prompt (use provided or default)
+    const finalSystemPrompt = systemPrompt || 'You are a helpful AI assistant specializing in agricultural marketing and business strategy.';
 
     const response = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 2000,
-      system: systemPrompt,
+      system: finalSystemPrompt,
       messages: [
         {
           role: 'user',
-          content: userMessage
+          content: finalUserMessage
         }
       ]
     });
 
     res.json({
       response: response.content[0].text,
-      promptType: promptType || 'custom'
+      systemPrompt: finalSystemPrompt,
+      userPrompt: finalUserMessage
     });
 
   } catch (error) {
@@ -153,6 +150,23 @@ app.get('/api/templates', (req, res) => {
   }));
   
   res.json(templates);
+});
+
+// Get individual template data
+app.get('/api/template/:id', (req, res) => {
+  const templateId = req.params.id;
+  const template = promptTemplates[templateId];
+  
+  if (!template) {
+    return res.status(404).json({ error: 'Template not found' });
+  }
+  
+  res.json({
+    id: templateId,
+    name: templateId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    system: template.system,
+    template: template.template
+  });
 });
 
 // Health check endpoint

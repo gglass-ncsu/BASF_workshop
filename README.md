@@ -147,8 +147,31 @@ Monitor your deployment through:
 ### Common Issues
 
 1. **API Key Error**: Ensure Claude API key is correctly stored in Secret Manager
-2. **Build Failed**: Check that all required APIs are enabled
+2. **Build Failed**: Check that all required APIs are enabled  
 3. **Access Denied**: Verify IAM permissions for Cloud Build and Cloud Run
+4. **Public Access Blocked**: Organization policies may prevent public access
+
+### Organization Policy Issues
+
+If your deployment succeeds but public access fails with "organization policy" errors:
+
+**Quick Fix:**
+```bash
+./fix-public-access.sh
+```
+
+**Enterprise Solution (Recommended):**
+- Use authenticated access instead of public access
+- Add workshop participants to your Google Cloud project
+- Participants authenticate with their company Google accounts
+
+**Manual Public Access:**
+```bash
+gcloud run services add-iam-policy-binding basf-ai-workshop \
+  --region=us-central1 \
+  --member="allUsers" \
+  --role="roles/run.invoker"
+```
 
 ### Support Commands
 
@@ -164,6 +187,9 @@ echo "new_api_key" | gcloud secrets versions add claude-api-key --data-file=-
 
 # Redeploy
 gcloud builds submit --config cloudbuild.yaml .
+
+# Fix public access (if blocked by org policies)
+./fix-public-access.sh
 ```
 
 ## 💡 Workshop Tips

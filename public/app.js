@@ -1,105 +1,156 @@
-class WorkshopApp {
+class ConsoleApp {
     constructor() {
-        this.selectedTemplate = null;
         this.templates = [];
+        this.isLoading = false;
         this.initializeApp();
     }
 
     async initializeApp() {
         await this.loadTemplates();
         this.setupEventListeners();
-        this.setupEnterKeySubmission();
+        this.updateSendButton();
     }
 
     async loadTemplates() {
         try {
             const response = await fetch('/api/templates');
             this.templates = await response.json();
-            this.renderTemplates();
+            this.populateTemplateSelector();
         } catch (error) {
             console.error('Failed to load templates:', error);
             this.showError('Failed to load workshop templates');
         }
     }
 
-    renderTemplates() {
-        const container = document.getElementById('templates-container');
-        container.innerHTML = '';
-
+    populateTemplateSelector() {
+        const selector = document.getElementById('template-selector');
+        selector.innerHTML = '<option value="">Select a template...</option>';
+        
         this.templates.forEach(template => {
-            const templateElement = document.createElement('div');
-            templateElement.className = 'prompt-template bg-gray-50 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100';
-            templateElement.innerHTML = `
-                <h4 class="font-medium text-gray-800 mb-1">${template.name}</h4>
-                <p class="text-xs text-gray-600">${template.description}</p>
-            `;
-            templateElement.addEventListener('click', () => this.selectTemplate(template));
-            container.appendChild(templateElement);
+            const option = document.createElement('option');
+            option.value = template.id;
+            option.textContent = template.name;
+            selector.appendChild(option);
         });
-
-        // Add custom template option
-        const customTemplate = document.createElement('div');
-        customTemplate.className = 'prompt-template bg-blue-50 p-3 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100';
-        customTemplate.innerHTML = `
-            <h4 class="font-medium text-blue-800 mb-1">Custom Mode</h4>
-            <p class="text-xs text-blue-600">Use your own prompts without templates</p>
-        `;
-        customTemplate.addEventListener('click', () => this.selectTemplate(null));
-        container.appendChild(customTemplate);
-    }
-
-    selectTemplate(template) {
-        this.selectedTemplate = template;
-        
-        // Update visual selection
-        document.querySelectorAll('.prompt-template').forEach(el => {
-            el.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-100');
-        });
-        
-        event.target.closest('.prompt-template').classList.add('ring-2', 'ring-blue-500', 'bg-blue-100');
-        
-        // Update header
-        const templateName = template ? template.name : 'Custom Mode';
-        document.getElementById('selected-template').textContent = templateName;
-        
-        // Focus on message input
-        document.getElementById('message-input').focus();
     }
 
     setupEventListeners() {
-        const sendButton = document.getElementById('send-button');
-        const messageInput = document.getElementById('message-input');
+        // Template selector
+        const templateSelector = document.getElementById('template-selector');
+        const loadTemplateBtn = document.getElementById('load-template-btn');
         
-        sendButton.addEventListener('click', () => this.sendMessage());
-        
-        // Enable send button only when there's text
-        messageInput.addEventListener('input', () => {
-            sendButton.disabled = messageInput.value.trim() === '';
+        templateSelector.addEventListener('change', () => {
+            loadTemplateBtn.disabled = !templateSelector.value;
         });
+        
+        loadTemplateBtn.addEventListener('click', () => this.loadSelectedTemplate());
+        
+        // Prompt inputs
+        const systemPrompt = document.getElementById('system-prompt');
+        const userPrompt = document.getElementById('user-prompt');
+        
+        systemPrompt.addEventListener('input', () => this.updateSendButton());
+        userPrompt.addEventListener('input', () => this.updateSendButton());
+        
+        // Buttons
+        document.getElementById('send-button').addEventListener('click', () => this.sendMessage());
+        document.getElementById('clear-prompts-btn').addEventListener('click', () => this.clearPrompts());
+        document.getElementById('reset-chat-btn').addEventListener('click', () => this.resetChat());
+        
+        // Keyboard shortcuts
+        systemPrompt.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        userPrompt.addEventListener('keydown', (e) => this.handleKeyDown(e));
     }
 
-    setupEnterKeySubmission() {
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
+    handleKeyDown(e) {
+        // Ctrl/Cmd + Enter to send
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            if (!this.isLoading && this.canSend()) {
                 this.sendMessage();
             }
-        });
+        }
+    }
+
+    loadSelectedTemplate() {
+        const selector = document.getElementById('template-selector');
+        const templateId = selector.value;
+        
+        if (!templateId) return;
+        
+        // Find the template data from server
+        fetch(`/api/template/${templateId}`)
+            .then(response => response.json())
+            .then(template => {
+                document.getElementById('system-prompt').value = template.system;
+                document.getElementById('user-prompt').value = template.template;
+                this.updateSendButton();
+                
+                // Focus on user prompt for editing
+                document.getElementById('user-prompt').focus();
+            })
+            .catch(error => {
+                console.error('Failed to load template:', error);
+                this.showError('Failed to load template');
+            });
+    }
+
+    clearPrompts() {
+        document.getElementById('system-prompt').value = '';
+        document.getElementById('user-prompt').value = '';
+        document.getElementById('context-input').value = '';
+        document.getElementById('template-selector').value = '';
+        document.getElementById('load-template-btn').disabled = true;
+        this.updateSendButton();
+    }
+
+    resetChat() {
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="chat-message bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        AI
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-gray-800">Welcome to the BASF AI Workshop! Configure your system and user prompts above, or select a template to get started. You can edit any template before sending it to the AI.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    canSend() {
+        const userPrompt = document.getElementById('user-prompt').value.trim();
+        return userPrompt.length > 0 && !this.isLoading;
+    }
+
+    updateSendButton() {
+        const sendButton = document.getElementById('send-button');
+        const canSend = this.canSend();
+        
+        sendButton.disabled = !canSend;
+        sendButton.innerHTML = this.isLoading ? 
+            '<span class="loading-spinner"></span> Sending...' : 
+            'Send Message';
     }
 
     async sendMessage() {
-        const messageInput = document.getElementById('message-input');
-        const contextInput = document.getElementById('context-input');
-        const message = messageInput.value.trim();
-        
-        if (!message) return;
+        if (!this.canSend()) return;
 
-        // Clear input and disable send button
-        messageInput.value = '';
-        document.getElementById('send-button').disabled = true;
-        
+        const systemPrompt = document.getElementById('system-prompt').value.trim();
+        const userPrompt = document.getElementById('user-prompt').value.trim();
+        const context = document.getElementById('context-input').value.trim();
+
+        this.isLoading = true;
+        this.updateSendButton();
+
         // Add user message to chat
-        this.addMessage(message, 'user');
+        this.addMessage(userPrompt, 'user');
+        
+        // Show system prompt if provided
+        if (systemPrompt) {
+            this.addMessage(`System: ${systemPrompt}`, 'system');
+        }
         
         // Show typing indicator
         this.showTypingIndicator();
@@ -111,9 +162,9 @@ class WorkshopApp {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    message: message,
-                    promptType: this.selectedTemplate?.id,
-                    context: contextInput.value.trim() || undefined
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    context: context || undefined
                 })
             });
 
@@ -131,6 +182,9 @@ class WorkshopApp {
             console.error('Error sending message:', error);
             this.hideTypingIndicator();
             this.addMessage('Sorry, I encountered an error processing your request. Please try again.', 'ai', true);
+        } finally {
+            this.isLoading = false;
+            this.updateSendButton();
         }
     }
 
@@ -139,19 +193,38 @@ class WorkshopApp {
         const messageElement = document.createElement('div');
         messageElement.className = 'chat-message';
         
-        const isUser = sender === 'user';
-        const bgColor = isError ? 'bg-red-50' : (isUser ? 'bg-gray-50' : 'bg-blue-50');
-        const avatar = isUser ? 'You' : 'AI';
-        const avatarBg = isError ? 'bg-red-500' : (isUser ? 'bg-gray-500' : 'bg-blue-500');
+        let bgColor, avatar, avatarBg, borderColor;
+        
+        if (isError) {
+            bgColor = 'bg-red-50';
+            avatarBg = 'bg-red-500';
+            borderColor = 'border-red-500';
+            avatar = 'ERR';
+        } else if (sender === 'user') {
+            bgColor = 'bg-gray-50';
+            avatarBg = 'bg-gray-600';
+            borderColor = 'border-gray-500';
+            avatar = 'YOU';
+        } else if (sender === 'system') {
+            bgColor = 'bg-green-50';
+            avatarBg = 'bg-green-600';
+            borderColor = 'border-green-500';
+            avatar = 'SYS';
+        } else {
+            bgColor = 'bg-blue-50';
+            avatarBg = 'bg-blue-500';
+            borderColor = 'border-blue-500';
+            avatar = 'AI';
+        }
         
         messageElement.innerHTML = `
-            <div class="${bgColor} p-4 rounded-lg">
+            <div class="${bgColor} p-4 rounded-lg border-l-4 ${borderColor}">
                 <div class="flex items-start space-x-3">
-                    <div class="w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        ${avatar.charAt(0)}
+                    <div class="w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-white text-xs font-medium">
+                        ${avatar}
                     </div>
                     <div class="flex-1">
-                        <p class="text-gray-800 whitespace-pre-wrap">${content}</p>
+                        <p class="text-gray-800 whitespace-pre-wrap break-words">${this.escapeHtml(content)}</p>
                     </div>
                 </div>
             </div>
@@ -159,6 +232,12 @@ class WorkshopApp {
         
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     showTypingIndicator() {
@@ -178,5 +257,5 @@ class WorkshopApp {
 
 // Initialize the app when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new WorkshopApp();
+    new ConsoleApp();
 });

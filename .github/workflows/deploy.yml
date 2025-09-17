@@ -96,17 +96,28 @@ jobs:
             --port 8080 \
             --no-allow-unauthenticated
 
+      - name: Install gcloud beta components
+        run: |
+          gcloud components install beta --quiet
+
       - name: Set IAM policy for public access
         run: |
           echo "Setting IAM policy for public access..."
           gcloud run services add-iam-policy-binding $SERVICE_NAME \
             --region=$REGION \
             --member="allUsers" \
-            --role="roles/run.invoker" || \
-          gcloud beta run services add-iam-policy-binding $SERVICE_NAME \
-            --region=$REGION \
-            --member="allUsers" \
-            --role="roles/run.invoker"
+            --role="roles/run.invoker" || {
+            echo "Standard IAM policy failed, trying beta command..."
+            gcloud beta run services add-iam-policy-binding $SERVICE_NAME \
+              --region=$REGION \
+              --member="allUsers" \
+              --role="roles/run.invoker" || {
+              echo "⚠️ Could not set public access due to organization policies."
+              echo "The service is deployed but requires manual access configuration."
+              echo "To make it public, run:"
+              echo "gcloud run services add-iam-policy-binding $SERVICE_NAME --region=$REGION --member=allUsers --role=roles/run.invoker"
+            }
+          }
 
       - name: Get service URL
         id: url

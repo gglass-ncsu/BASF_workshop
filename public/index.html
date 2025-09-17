@@ -26,6 +26,67 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
+        
+        /* Console-like styling */
+        textarea {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        
+        .console-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .console-section:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .prompt-label {
+            background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: #475569;
+        }
+        
+        .char-count {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .system-prompt {
+            border-left: 4px solid #cc0000;
+        }
+        
+        .user-prompt {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .context-prompt {
+            border-left: 4px solid #f59e0b;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -33,9 +94,17 @@
         <!-- Header -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-800">BASF AI Workshop</h1>
-                    <p class="text-gray-600 mt-2">AI for Agricultural Marketers - Crafting High-Value Narratives</p>
+                <div class="flex items-center space-x-6">
+                    <img 
+                        src="https://it.poole.ncsu.edu/wp-content/uploads/2023/06/NC-Poole-2020.png" 
+                        alt="NC State Poole College of Management" 
+                        class="h-16 w-auto"
+                    >
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800">BASF AI Workshop</h1>
+                        <p class="text-gray-600 mt-1">AI for Agricultural Marketers - Crafting High-Value Narratives</p>
+                        <p class="text-sm text-red-600 font-medium mt-1">NC State Poole College of Management</p>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-2">
                     <div class="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -44,49 +113,112 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Workshop Templates Panel -->
+        <!-- Console-style Interface -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Template Selector -->
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-lg p-6 h-fit">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Workshop Templates</h2>
-                    <p class="text-sm text-gray-600 mb-6">Choose a pre-configured prompt from your workshop exercises:</p>
-                    
-                    <div id="templates-container" class="space-y-3">
-                        <!-- Templates will be loaded here -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Templates</h2>
+                    <div class="mb-4">
+                        <select id="template-selector" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a template...</option>
+                        </select>
                     </div>
-
+                    <button 
+                        id="load-template-btn" 
+                        class="w-full bg-red-700 text-white py-2 px-4 rounded-lg hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-400"
+                        disabled
+                    >
+                        Load Template
+                    </button>
+                    
                     <div class="mt-6 pt-6 border-t border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-800 mb-3">Custom Context</h3>
-                        <textarea 
-                            id="context-input" 
-                            placeholder="Paste any additional context (financial reports, product info, etc.) here..."
-                            class="w-full p-3 border border-gray-300 rounded-lg resize-vertical"
-                            rows="4"
-                        ></textarea>
+                        <h3 class="text-lg font-medium text-gray-800 mb-3">Quick Actions</h3>
+                        <button id="clear-prompts-btn" class="w-full bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 mb-2">
+                            Clear All
+                        </button>
+                        <button id="reset-chat-btn" class="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600">
+                            Reset Chat
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Chat Interface -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow-lg flex flex-col h-96 lg:h-[600px]">
+            <!-- Prompt Configuration -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Prompt Configuration</h2>
+                    
+                    <!-- System Prompt -->
+                    <div class="mb-6">
+                        <label for="system-prompt" class="block text-sm font-medium text-gray-700 mb-2">
+                            System Prompt
+                        </label>
+                        <textarea 
+                            id="system-prompt" 
+                            placeholder="Enter system instructions that define the AI's role and behavior..."
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical font-mono text-sm"
+                            rows="6"
+                        ></textarea>
+                    </div>
+
+                    <!-- User Prompt -->
+                    <div class="mb-6">
+                        <label for="user-prompt" class="block text-sm font-medium text-gray-700 mb-2">
+                            User Message
+                        </label>
+                        <textarea 
+                            id="user-prompt" 
+                            placeholder="Enter your message or question here..."
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical font-mono text-sm"
+                            rows="4"
+                        ></textarea>
+                    </div>
+
+                    <!-- Additional Context -->
+                    <div class="mb-6">
+                        <label for="context-input" class="block text-sm font-medium text-gray-700 mb-2">
+                            Additional Context (Optional)
+                        </label>
+                        <textarea 
+                            id="context-input" 
+                            placeholder="Paste any additional context (financial reports, product info, etc.) here..."
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical"
+                            rows="3"
+                        ></textarea>
+                    </div>
+
+                    <!-- Send Button -->
+                    <div class="flex justify-end">
+                        <button 
+                            id="send-button" 
+                            class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            Send Message
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <div class="bg-white rounded-lg shadow-lg">
                     <!-- Chat Header -->
                     <div class="border-b border-gray-200 p-4">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-semibold text-gray-800">AI Assistant</h3>
-                            <span id="selected-template" class="text-sm text-blue-600 font-medium">Custom Mode</span>
+                            <h3 class="text-lg font-semibold text-gray-800">Conversation</h3>
+                            <span id="model-info" class="text-sm text-gray-600">Claude 3 Sonnet</span>
                         </div>
                     </div>
 
                     <!-- Chat Messages -->
-                    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
-                        <div class="chat-message bg-blue-50 p-4 rounded-lg">
+                    <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-4">
+                        <div class="chat-message bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                             <div class="flex items-start space-x-3">
                                 <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                                     AI
                                 </div>
                                 <div class="flex-1">
-                                    <p class="text-gray-800">Welcome to the BASF AI Workshop! I'm here to help you with agricultural marketing tasks using advanced AI prompting techniques. Choose a template from the left panel or ask me anything directly.</p>
+                                    <p class="text-gray-800">Welcome to the BASF AI Workshop! Configure your system and user prompts above, or select a template to get started. You can edit any template before sending it to the AI.</p>
                                 </div>
                             </div>
                         </div>
@@ -105,45 +237,32 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Chat Input -->
-                    <div class="border-t border-gray-200 p-4">
-                        <div class="flex space-x-3">
-                            <input 
-                                type="text" 
-                                id="message-input" 
-                                placeholder="Type your message or question here..."
-                                class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                            <button 
-                                id="send-button" 
-                                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400"
-                            >
-                                Send
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Workshop Information -->
         <div class="mt-6 bg-white rounded-lg shadow-lg p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Workshop Objectives</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-blue-50 rounded-lg">
-                    <h3 class="font-semibold text-blue-800">Creative Ideation</h3>
-                    <p class="text-sm text-blue-600 mt-2">Brainstorm marketing content and campaign themes</p>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Workshop Objectives</h2>
+                <div class="text-sm text-gray-600">
+                    Presented by <span class="font-medium text-red-600">NC State Poole College of Management</span>
                 </div>
-                <div class="text-center p-4 bg-green-50 rounded-lg">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-red-50 rounded-lg border-l-4 border-red-600">
+                    <h3 class="font-semibold text-red-800">Creative Ideation</h3>
+                    <p class="text-sm text-red-600 mt-2">Brainstorm marketing content and campaign themes</p>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg border-l-4 border-green-600">
                     <h3 class="font-semibold text-green-800">Analytical Reasoning</h3>
                     <p class="text-sm text-green-600 mt-2">Analyze competitor data and market insights</p>
                 </div>
-                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-center p-4 bg-purple-50 rounded-lg border-l-4 border-purple-600">
                     <h3 class="font-semibold text-purple-800">Strategic Planning</h3>
                     <p class="text-sm text-purple-600 mt-2">Develop innovation portfolio strategies</p>
                 </div>
-                <div class="text-center p-4 bg-orange-50 rounded-lg">
+                <div class="text-center p-4 bg-orange-50 rounded-lg border-l-4 border-orange-600">
                     <h3 class="font-semibold text-orange-800">Stakeholder Communication</h3>
                     <p class="text-sm text-orange-600 mt-2">Craft compelling investor narratives</p>
                 </div>
